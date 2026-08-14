@@ -1,95 +1,104 @@
---[[
-    PURPLE HUB V-PRO: MODULE - MOVEMENT
-    Includes: Velocity Fly, NoClip, Speed Bypass
-]]
-
 local Movement = {}
 
 function Movement:Init(UI, Core)
     local Players = game:GetService("Players")
+    local UserInputService = game:GetService("UserInputService")
     local RunService = game:GetService("RunService")
-    local Workspace = game:GetService("Workspace")
     local LocalPlayer = Players.LocalPlayer
-    local Camera = Workspace.CurrentCamera
+    local Camera = workspace.CurrentCamera
 
     local MovementTab = UI:CreateTab("Movement")
 
-    -- State Değişkenleri
     local flyEnabled = false
-    local noclipEnabled = false
     local flySpeed = 50
+    local speedValue = 16
+    local jumpHeight = 50
+    local infJump = false
+    local noclipEnabled = false
 
-    -- 1. NOCLIP (Duvarların İçinden Geçme)
-    MovementTab:AddToggle("NoClip", function(state)
-        noclipEnabled = state
+    -- WalkSpeed Slider
+    MovementTab:AddSlider("Walk Speed", 16, 150, 16, function(val)
+        speedValue = val
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+            LocalPlayer.Character:FindFirstChildOfClass("Humanoid").WalkSpeed = speedValue
+        end
     end)
 
-    RunService.Stepped:Connect(function()
+    -- FlySpeed Slider
+    MovementTab:AddSlider("Fly Speed", 20, 200, 50, function(val)
+        flySpeed = val
+    end)
+
+    -- Jump Power Slider
+    MovementTab:AddSlider("Jump Power", 50, 250, 50, function(val)
+        jumpHeight = val
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+            LocalPlayer.Character:FindFirstChildOfClass("Humanoid").JumpPower = jumpHeight
+        end
+    end)
+
+    -- Infinite Jump
+    MovementTab:AddToggle("Infinite Jump", function(state) infJump = state end)
+
+    local jumpConn = UserInputService.JumpRequest:Connect(function()
+        if infJump and LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+            LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState(Enum.HumanoidStateType.Jumping)
+        end
+    end)
+
+    -- Velocity Fly
+    MovementTab:AddToggle("Fly (Velocity)", function(state)
+        flyEnabled = state
+        local char = LocalPlayer.Character
+        if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+        local hrp = char.HumanoidRootPart
+
+        if flyEnabled then
+            local bv = Instance.new("BodyVelocity", hrp)
+            bv.Name = "PurpleFlyBV"
+            bv.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+
+            task.spawn(function()
+                while flyEnabled and hrp:FindFirstChild("PurpleFlyBV") do
+                    local moveDir = char:FindFirstChildOfClass("Humanoid").MoveDirection
+                    bv.Velocity = moveDir.Magnitude > 0 and (Camera.CFrame.LookVector * flySpeed) or Vector3.new(0,0,0)
+                    RunService.RenderStepped:Wait()
+                end
+                if hrp:FindFirstChild("PurpleFlyBV") then hrp.PurpleFlyBV:Destroy() end
+            end)
+        else
+            if hrp:FindFirstChild("PurpleFlyBV") then hrp.PurpleFlyBV:Destroy() end
+        end
+    end)
+
+    -- NoClip
+    MovementTab:AddToggle("NoClip", function(state) noclipEnabled = state end)
+
+    local noclipConn = RunService.Stepped:Connect(function()
         if noclipEnabled and LocalPlayer.Character then
             for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
-                if part:IsA("BasePart") then
-                    part.CanCollide = false
-                end
+                if part:IsA("BasePart") then part.CanCollide = false end
             end
         end
     end)
 
-    -- 2. VELOCITY FLY (Süzülerek Uçma)
-    MovementTab:AddToggle("Fly (Velocity)", function(state)
-        flyEnabled = state
+    -- Kapanışta Sıfırlama
+    UI:OnClose(function()
+        flyEnabled = false
+        infJump = false
+        noclipEnabled = false
+        if jumpConn then jumpConn:Disconnect() end
+        if noclipConn then noclipConn:Disconnect() end
         
-        local char = LocalPlayer.Character
-        if not char or not char:FindFirstChild("HumanoidRootPart") then return end
-        
-        local hrp = char.HumanoidRootPart
-
-        if flyEnabled then
-            -- Havada Asılı Kalma Gövdesi (BodyVelocity)
-            local bv = Instance.new("BodyVelocity")
-            bv.Name = "PurpleFlyBV"
-            bv.Parent = hrp
-            bv.MaxForce = Vector3.new(1e5, 1e5, 1e5)
-            bv.Velocity = Vector3.new(0, 0, 0)
-
-            local bg = Instance.new("BodyGyro")
-            bg.Name = "PurpleFlyBG"
-            bg.Parent = hrp
-            bg.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
-            bg.CFrame = hrp.CFrame
-
-            -- Uçuş Döngüsü
-            task.spawn(function()
-                while flyEnabled and hrp:FindFirstChild("PurpleFlyBV") do
-                    local moveDir = char:FindFirstChildOfClass("Humanoid").MoveDirection
-                    
-                    if moveDir.Magnitude > 0 then
-                        bv.Velocity = Camera.CFrame.LookVector * (moveDir.Magnitude * flySpeed)
-                    else
-                        bv.Velocity = Vector3.new(0, 0, 0)
-                    end
-                    
-                    bg.CFrame = Camera.CFrame
-                    RunService.RenderStepped:Wait()
-                end
-
-                -- Kapandığında objeleri temizle
-                if hrp:FindFirstChild("PurpleFlyBV") then hrp.PurpleFlyBV:Destroy() end
-                if hrp:FindFirstChild("PurpleFlyBG") then hrp.PurpleFlyBG:Destroy() end
-            end)
-        else
-            if hrp:FindFirstChild("PurpleFlyBV") then hrp.PurpleFlyBV:Destroy() end
-            if hrp:FindFirstChild("PurpleFlyBG") then hrp.PurpleFlyBG:Destroy() end
-        end
-    end)
-
-    -- 3. SPEED BYPASS (Hızlı Yürüme)
-    MovementTab:AddToggle("Speed Boost", function(state)
         if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
-            LocalPlayer.Character:FindFirstChildOfClass("Humanoid").WalkSpeed = state and 32 or 16
+            LocalPlayer.Character:FindFirstChildOfClass("Humanoid").WalkSpeed = 16
+            LocalPlayer.Character:FindFirstChildOfClass("Humanoid").JumpPower = 50
+        end
+        
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character.HumanoidRootPart:FindFirstChild("PurpleFlyBV") then
+            LocalPlayer.Character.HumanoidRootPart.PurpleFlyBV:Destroy()
         end
     end)
-
-    print("[PurpleHub] Movement Module Loaded with Fly & NoClip!")
 end
 
 return Movement
