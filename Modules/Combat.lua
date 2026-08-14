@@ -1,39 +1,29 @@
---[[
-    PURPLE HUB V-PRO: MODULE - COMBAT
-    Includes: Auto-Block, Hitbox Extender, Aimbot, Auto-Attack
-]]
-
 local Combat = {}
 
 function Combat:Init(UI, Core)
     local Players = game:GetService("Players")
-    local RunService = game:GetService("RunService")
     local LocalPlayer = Players.LocalPlayer
     local Camera = workspace.CurrentCamera
+    local RunService = game:GetService("RunService")
 
     local CombatTab = UI:CreateTab("Combat")
 
-    -- State Değişkenleri
-    local autoBlock = false
-    local autoAttack = false
     local aimbotEnabled = false
-    local hitboxExtender = false
+    local autoAttack = false
+    local autoBlock = false
 
-    -- En Yakın Düşmanı Bulma Fonksiyonu
+    -- En Yakın Oyuncuyu Bulma
     local function GetClosestPlayer()
         local closest = nil
-        local maxDistance = 100 -- Algılama mesafesi
-
-        for _, player in pairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                local char = player.Character
-                local hum = char:FindFirstChildOfClass("Humanoid")
-                
+        local maxDist = 100
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                local hum = p.Character:FindFirstChildOfClass("Humanoid")
                 if hum and hum.Health > 0 then
-                    local dist = (LocalPlayer.Character.HumanoidRootPart.Position - char.HumanoidRootPart.Position).Magnitude
-                    if dist < maxDistance then
-                        maxDistance = dist
-                        closest = player
+                    local dist = (LocalPlayer.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
+                    if dist < maxDist then
+                        maxDist = dist
+                        closest = p
                     end
                 end
             end
@@ -41,12 +31,10 @@ function Combat:Init(UI, Core)
         return closest
     end
 
-    -- 1. AIMBOT (Kamera Kilitleme)
-    CombatTab:AddToggle("Camera Aimbot", function(state)
-        aimbotEnabled = state
-    end)
+    -- Camera Aimbot
+    CombatTab:AddToggle("Camera Aimbot", function(state) aimbotEnabled = state end)
 
-    RunService.RenderStepped:Connect(function()
+    local aimbotConnection = RunService.RenderStepped:Connect(function()
         if aimbotEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
             local target = GetClosestPlayer()
             if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
@@ -55,53 +43,54 @@ function Combat:Init(UI, Core)
         end
     end)
 
-    -- 2. AUTO-ATTACK (Otomatik Vuruş / M1 Loop)
+    -- Auto Attack (TSB Remote & Tool Trigger)
     CombatTab:AddToggle("Auto-Attack (M1)", function(state)
         autoAttack = state
-        
         task.spawn(function()
             while autoAttack do
-                local target = GetClosestPlayer()
-                if target and LocalPlayer.Character then
-                    -- TSB'de vuruş tetiklemek için sanal sol tık/attack eventi
-                    game:GetService("VirtualUser"):Button1Down(Vector2.new(0,0), Camera.CFrame)
-                    task.wait(0.05)
-                    game:GetService("VirtualUser"):Button1Up(Vector2.new(0,0), Camera.CFrame)
+                local char = LocalPlayer.Character
+                if char then
+                    -- 1. Yöntem: Eldeki Tool Tetikleme
+                    local tool = char:FindFirstChildOfClass("Tool")
+                    if tool then 
+                        tool:Activate() 
+                    end
+                    
+                    -- 2. Yöntem: TSB Communicate Remote'una Vuruş Sinyali Gönderme
+                    local communicate = char:FindFirstChild("Communicate") or game:GetService("ReplicatedStorage"):FindFirstChild("Communicate")
+                    if communicate and communicate:IsA("RemoteEvent") then
+                        communicate:FireServer({Goal = "LeftClick"})
+                    end
                 end
-                task.wait(0.15) -- Saldırı hızı ayarı
+                task.wait(0.12) -- Vuruş hızı dilediğin gibi ayarlanabilir
             end
         end)
     end)
 
-    -- 3. AUTO-BLOCK
-    CombatTab:AddToggle("Auto-Block (Pro)", function(state)
-        autoBlock = state
-        -- Auto-block mantığı
-    end)
-
-    -- 4. HITBOX EXTENDER
+    -- Hitbox Extender (Karakterlerin Hitbox'ını Devasa Yapma)
     CombatTab:AddToggle("Hitbox Extender", function(state)
-        hitboxExtender = state
-        for _, player in pairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                if hitboxExtender then
-                    player.Character.HumanoidRootPart.Size = Vector3.new(10, 10, 10)
-                    player.Character.HumanoidRootPart.Transparency = 0.7
-                    player.Character.HumanoidRootPart.BrickColor = BrickColor.new("Really purple")
-                else
-                    player.Character.HumanoidRootPart.Size = Vector3.new(2, 2, 1)
-                    player.Character.HumanoidRootPart.Transparency = 1
-                end
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                p.Character.HumanoidRootPart.Size = state and Vector3.new(14, 14, 14) or Vector3.new(2, 2, 1)
+                p.Character.HumanoidRootPart.Transparency = state and 0.75 or 1
+                p.Character.HumanoidRootPart.BrickColor = BrickColor.new("Really purple")
             end
         end
     end)
 
-    -- Sürpriz modülün için ayrılan alan
-    CombatTab:AddToggle("Secret Feature", function(state)
-        -- Sürpriz kodun buraya bağlanacak
+    -- Menü Kapanınca Temizle
+    UI:OnClose(function()
+        aimbotEnabled = false
+        autoAttack = false
+        if aimbotConnection then aimbotConnection:Disconnect() end
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                p.Character.HumanoidRootPart.Size = Vector3.new(2, 2, 1)
+                p.Character.HumanoidRootPart.Transparency = 1
+            end
+        end
     end)
-
-    print("[PurpleHub] Combat Module Loaded with Aimbot & AutoAttack!")
 end
 
 return Combat
+
