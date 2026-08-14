@@ -1,32 +1,63 @@
---[[ GÜNCELLEDİĞİMİZ DEBUG MODLU INIT.LUA ]]
-local PurpleHub = { Modules = {} }
-local BASE_URL = "https://raw.githubusercontent.com/guest666-code/PurpleHub/refs/heads/main/"
+--[[
+    PURPLE HUB V-PRO | THE STRONGEST BATTLEGROUNDS
+    Core Manager & Module Loader
+    Developer: rodbira_EXE / SGM
+]]
+
+local PurpleHub = {
+    Version = "1.0.0-PRO",
+    Modules = {},
+    BASE_URL = "https://raw.githubusercontent.com/guest666-code/PurpleHub/refs/heads/main/"
+}
+
+function PurpleHub:Log(msg, isError)
+    if isError then
+        warn("🟣 [PurpleHub ERROR]: " .. tostring(msg))
+    else
+        print("🟣 [PurpleHub]: " .. tostring(msg))
+    end
+end
 
 function PurpleHub:Start()
-    print("[PurpleHub] UI Yukleniyor...")
-    local success, UILib = pcall(function() return loadstring(game:HttpGet(BASE_URL .. "UI/Library.lua"))() end)
-    
-    if not success then warn("[PurpleHub] UI Library Yuklenemedi: " .. tostring(UILib)) return end
-    
-    self.UI = UILib:CreateWindow("🟣 PURPLE HUB V-PRO | TSB")
+    self:Log("Init.lua baslatiliyor...")
 
-    local function Load(name)
-        print("[PurpleHub] Yukleniyor: " .. name)
-        local success, mod = pcall(function() return loadstring(game:HttpGet(BASE_URL .. "Modules/" .. name .. ".lua"))() end)
+    -- 1. UI Library Yükle
+    local uiSuccess, UILib = pcall(function()
+        return loadstring(game:HttpGet(self.BASE_URL .. "UI/Library.lua"))()
+    end)
+
+    if not uiSuccess or type(UILib) ~= "table" then
+        self:Log("UI Library (Library.lua) yuklenemedi! Hata: " .. tostring(UILib), true)
+        return
+    end
+
+    -- 2. Ana Pencerayi Olustur
+    self.UI = UILib:CreateWindow("🟣 PURPLE HUB V-PRO | TSB")
+    self:Log("UI Penceresi basariyla olusturuldu.")
+
+    -- 3. Modulleri Yukleme Fonksiyonu
+    local function LoadModule(moduleName)
+        self:Log("Modul indiriliyor: " .. moduleName)
         
-        if success and mod then
-            self.Modules[name] = mod
-            mod:Init(self.UI, self)
-            print("[PurpleHub] " .. name .. " Basariyla Baglandi.")
+        local success, moduleScript = pcall(function()
+            return loadstring(game:HttpGet(self.BASE_URL .. "Modules/" .. moduleName .. ".lua"))()
+        end)
+
+        if success and type(moduleScript) == "table" and moduleScript.Init then
+            self.Modules[moduleName] = moduleScript
+            moduleScript:Init(self.UI, self)
+            self:Log(moduleName .. " modulu basariyla yuklendi ve baslatildi.")
         else
-            warn("[PurpleHub] HATA - " .. name .. " yuklenemedi: " .. tostring(mod))
+            self:Log(moduleName .. " modulu yuklenirken hata olustu! Detay: " .. tostring(moduleScript), true)
         end
     end
 
-    Load("Combat")
-    Load("Visuals")
-    Load("Movement")
-    print("[PurpleHub] Islem tamamlandi.")
+    -- 4. Modulleri Sirayla Agirlayalim
+    LoadModule("Combat")
+    LoadModule("Movement")
+    LoadModule("Visuals")
+
+    self:Log("Yukleme tamamlandi!")
 end
 
 PurpleHub:Start()
