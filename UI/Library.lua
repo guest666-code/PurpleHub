@@ -1,27 +1,21 @@
---[[
-    PURPLE HUB V-PRO: FIXED UI LIBRARY (WITH CLEANUP TRIPPERS & FIXED AUDIO)
-]]
-
 local Library = { OnCloseEvents = {} }
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local SoundService = game:GetService("SoundService")
 local UserInputService = game:GetService("UserInputService")
 
--- Roblox Tarafında Garantili Çalışan Global UI Sesleri
-local function PlaySound(soundType)
-    local sound = Instance.new("Sound")
-    if soundType == "Click" then
-        sound.SoundId = "rbxassetid://12221967" -- Standart Tıklama
-        sound.Pitch = 1.2
-    elseif soundType == "Close" then
-        sound.SoundId = "rbxassetid://12221976" -- Kapanış Sesi
-        sound.Pitch = 0.8
-    end
-    sound.Volume = 0.5
-    sound.Parent = SoundService
-    sound:Play()
-    sound.Ended:Connect(function() sound:Destroy() end)
+-- Mobilde Kesin Çalışan Roblox Ses Sistemi
+local function PlaySound(pitch)
+    task.spawn(function()
+        local sound = Instance.new("Sound")
+        sound.SoundId = "rbxassetid://9114219508" -- Temiz UI Tıklama Sesi
+        sound.Volume = 0.6
+        sound.Pitch = pitch or 1.0
+        sound.Parent = SoundService
+        sound:Play()
+        task.wait(1)
+        sound:Destroy()
+    end)
 end
 
 function Library:OnClose(fn)
@@ -29,7 +23,7 @@ function Library:OnClose(fn)
 end
 
 function Library:CreateWindow(hubTitle)
-    local window = { Tabs = {}, IsMinimized = false }
+    local window = { Tabs = {}, ActiveTab = nil, IsMinimized = false }
 
     if game.CoreGui:FindFirstChild("PurpleHub_Pro") then
         game.CoreGui.PurpleHub_Pro:Destroy()
@@ -65,7 +59,6 @@ function Library:CreateWindow(hubTitle)
     title.TextSize = 11
     title.TextXAlignment = Enum.TextXAlignment.Left
 
-    -- KÜÇÜLTME BUTONU (-)
     local minBtn = Instance.new("TextButton", topBar)
     minBtn.Text = "-"
     minBtn.Size = UDim2.new(0, 26, 0, 26)
@@ -76,7 +69,6 @@ function Library:CreateWindow(hubTitle)
     minBtn.TextSize = 14
     Instance.new("UICorner", minBtn).CornerRadius = UDim.new(0, 6)
 
-    -- KAPATMA BUTONU (X - KARE SİMGESİ DÜZELTİLDİ)
     local closeBtn = Instance.new("TextButton", topBar)
     closeBtn.Text = "X"
     closeBtn.Size = UDim2.new(0, 26, 0, 26)
@@ -87,40 +79,38 @@ function Library:CreateWindow(hubTitle)
     closeBtn.TextSize = 12
     Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 6)
 
+    -- SEKME MENÜSÜ (NAVBAR)
     local navBar = Instance.new("Frame", mainFrame)
     navBar.Size = UDim2.new(1, -16, 0, 32)
-    navBar.Position = UDim2.new(0, 8, 0, 46)
+    navBar.Position = UDim2.new(0, 8, 0, 44)
     navBar.BackgroundColor3 = Color3.fromRGB(12, 11, 16)
     Instance.new("UICorner", navBar).CornerRadius = UDim.new(0, 6)
 
     local navLayout = Instance.new("UIListLayout", navBar)
     navLayout.FillDirection = Enum.FillDirection.Horizontal
     navLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    navLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
 
     local contentFrame = Instance.new("Frame", mainFrame)
-    contentFrame.Size = UDim2.new(1, -16, 1, -90)
-    contentFrame.Position = UDim2.new(0, 8, 0, 84)
+    contentFrame.Size = UDim2.new(1, -16, 1, -88)
+    contentFrame.Position = UDim2.new(0, 8, 0, 82)
     contentFrame.BackgroundTransparency = 1
 
     minBtn.MouseButton1Click:Connect(function()
-        PlaySound("Click")
+        PlaySound(1.2)
         window.IsMinimized = not window.IsMinimized
-        TweenService:Create(mainFrame, TweenInfo.new(0.3), { Size = window.IsMinimized and UDim2.new(0, 340, 0, 40) or UDim2.new(0, 340, 0, 420) }):Play()
+        TweenService:Create(mainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = window.IsMinimized and UDim2.new(0, 340, 0, 40) or UDim2.new(0, 340, 0, 420) }):Play()
         navBar.Visible = not window.IsMinimized
         contentFrame.Visible = not window.IsMinimized
     end)
 
-    -- HİLELERİ VE ARAYÜZÜ TAMAMEN KAPATAN LOGIC
     closeBtn.MouseButton1Click:Connect(function()
-        PlaySound("Close")
-        
-        -- Tüm Modüllerdeki Hileleri Kapat (Cleanup Loop)
+        PlaySound(0.8)
         for _, callback in ipairs(Library.OnCloseEvents) do
             pcall(callback)
         end
-
-        TweenService:Create(mainFrame, TweenInfo.new(0.4), { Size = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 1 }):Play()
-        task.wait(0.4)
+        TweenService:Create(mainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), { Size = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 1 }):Play()
+        task.wait(0.3)
         screenGui:Destroy()
     end)
 
@@ -131,14 +121,14 @@ function Library:CreateWindow(hubTitle)
         tabBtn.Text = tabName
         tabBtn.Size = UDim2.new(0.25, 0, 1, 0)
         tabBtn.BackgroundTransparency = 1
-        tabBtn.TextColor3 = Color3.fromRGB(140, 140, 170)
-        tabBtn.Font = Enum.Font.GothamSemibold
+        tabBtn.TextColor3 = Color3.fromRGB(130, 130, 160)
+        tabBtn.Font = Enum.Font.GothamBold
         tabBtn.TextSize = 10
 
         local container = Instance.new("ScrollingFrame", contentFrame)
         container.Size = UDim2.new(1, 0, 1, 0)
         container.BackgroundTransparency = 1
-        container.Visible = (#window.Tabs == 0)
+        container.Visible = false
         container.ScrollBarThickness = 2
 
         local layout = Instance.new("UIListLayout", container)
@@ -148,20 +138,29 @@ function Library:CreateWindow(hubTitle)
             container.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 10)
         end)
 
-        if #window.Tabs == 0 then tabBtn.TextColor3 = Color3.fromRGB(170, 90, 255) end
-
-        tabBtn.MouseButton1Click:Connect(function()
-            PlaySound("Click")
+        local function ActivateTab()
             for _, t in pairs(window.Tabs) do
                 t.Container.Visible = false
-                t.Button.TextColor3 = Color3.fromRGB(140, 140, 170)
+                TweenService:Create(t.Button, TweenInfo.new(0.2), { TextColor3 = Color3.fromRGB(130, 130, 160) }):Play()
             end
             container.Visible = true
-            tabBtn.TextColor3 = Color3.fromRGB(170, 90, 255)
+            TweenService:Create(tabBtn, TweenInfo.new(0.2), { TextColor3 = Color3.fromRGB(170, 90, 255) }):Play()
+        end
+
+        tabBtn.MouseButton1Click:Connect(function()
+            PlaySound(1.1)
+            ActivateTab()
         end)
 
         tab.Container = container
         tab.Button = tabBtn
+
+        table.insert(window.Tabs, tab)
+
+        -- İlk Eklenen Sekmeyi Otomatik Aç
+        if #window.Tabs == 1 then
+            ActivateTab()
+        end
 
         function tab:AddToggle(text, callback)
             local btn = Instance.new("TextButton", container)
@@ -183,8 +182,14 @@ function Library:CreateWindow(hubTitle)
             local state = false
             btn.MouseButton1Click:Connect(function()
                 state = not state
-                PlaySound("Click")
-                status.BackgroundColor3 = state and Color3.fromRGB(160, 70, 255) or Color3.fromRGB(45, 45, 60)
+                PlaySound(state and 1.3 or 0.9)
+
+                -- Tıklama Animasyonu (Smooth Tween)
+                TweenService:Create(btn, TweenInfo.new(0.1), { Size = UDim2.new(0.98, 0, 0, 34) }):Play()
+                task.wait(0.05)
+                TweenService:Create(btn, TweenInfo.new(0.1), { Size = UDim2.new(1, 0, 0, 36) }):Play()
+
+                TweenService:Create(status, TweenInfo.new(0.2), { BackgroundColor3 = state and Color3.fromRGB(160, 70, 255) or Color3.fromRGB(45, 45, 60) }):Play()
                 pcall(callback, state)
             end)
         end
@@ -245,7 +250,6 @@ function Library:CreateWindow(hubTitle)
             end)
         end
 
-        table.insert(window.Tabs, tab)
         return tab
     end
 
@@ -253,3 +257,4 @@ function Library:CreateWindow(hubTitle)
 end
 
 return Library
+
