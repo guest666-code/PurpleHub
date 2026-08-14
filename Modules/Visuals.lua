@@ -1,147 +1,120 @@
---[[
-    PURPLE HUB V-PRO: MODULE - VISUALS
-    Includes: Box ESP, Nametag ESP, Ultimate Mode Tracker
-    Developer: rodbira_EXE / SGM
-]]
-
 local Visuals = {}
 
 function Visuals:Init(UI, Core)
     local Players = game:GetService("Players")
-    local RunService = game:GetService("RunService")
     local LocalPlayer = Players.LocalPlayer
+    local Camera = workspace.CurrentCamera
+    local RunService = game:GetService("RunService")
 
     local VisualsTab = UI:CreateTab("Visuals")
 
-    -- State Değişkenleri
-    local boxEspEnabled = false
-    local nametagEspEnabled = false
+    local espEnabled = false
+    local nameEspEnabled = false
     local ultTrackerEnabled = false
 
-    -- ESP Nesnelerini Temizleme/Oluşturma Yardımcısı
-    local function CreateESP(player)
-        if player == LocalPlayer then return end
+    local espFolder = Instance.new("Folder", game.CoreGui)
+    espFolder.Name = "PurpleHub_ESP"
 
-        local function SetupCharacter(char)
-            if not char then return end
-            local hrp = char:WaitForChild("HumanoidRootPart", 5)
-            local head = char:WaitForChild("Head", 5)
-            local hum = char:WaitForChild("Humanoid", 5)
-            if not hrp or not head or not hum then return end
-
-            -- 1. BOX ESP (Highlight / Box)
-            if not char:FindFirstChild("PurpleBoxESP") then
-                local highlight = Instance.new("Highlight")
-                highlight.Name = "PurpleBoxESP"
-                highlight.Parent = char
-                highlight.FillColor = Color3.fromRGB(140, 60, 255)
-                highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-                highlight.FillTransparency = 0.6
-                highlight.OutlineTransparency = 0
-                highlight.Enabled = boxEspEnabled
-            end
-
-            -- 2. NAMETAG & ULTI TRACKER ESP
-            if not head:FindFirstChild("PurpleNametag") then
-                local billboard = Instance.new("BillboardGui")
-                billboard.Name = "PurpleNametag"
-                billboard.Parent = head
-                billboard.Adornee = head
-                billboard.Size = UDim2.new(0, 200, 0, 50)
-                billboard.StudsOffset = Vector3.new(0, 3, 0)
-                billboard.AlwaysOnTop = true
-                billboard.Enabled = nametagEspEnabled or ultTrackerEnabled
-
-                local nameLabel = Instance.new("TextLabel", billboard)
-                nameLabel.Name = "NameLabel"
-                nameLabel.Size = UDim2.new(1, 0, 0.5, 0)
-                nameLabel.BackgroundTransparency = 1
-                nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-                nameLabel.TextStrokeTransparency = 0
-                nameLabel.Font = Enum.Font.GothamBold
-                nameLabel.TextSize = 13
-                nameLabel.Text = player.DisplayName
-
-                local statusLabel = Instance.new("TextLabel", billboard)
-                statusLabel.Name = "StatusLabel"
-                statusLabel.Size = UDim2.new(1, 0, 0.5, 0)
-                statusLabel.Position = UDim2.new(0, 0, 0.5, 0)
-                statusLabel.BackgroundTransparency = 1
-                statusLabel.TextColor3 = Color3.fromRGB(180, 180, 200)
-                statusLabel.TextStrokeTransparency = 0
-                statusLabel.Font = Enum.Font.GothamSemibold
-                statusLabel.TextSize = 11
-                statusLabel.Text = "HP: " .. math.floor(hum.Health)
-            end
-        end
-
-        if player.Character then SetupCharacter(player.Character) end
-        player.CharacterAdded:Connect(SetupCharacter)
+    -- ESP Temizleme Fonksiyonu
+    local function ClearESP()
+        espFolder:ClearAllChildren()
     end
 
-    -- Tüm Oyuncular İçin ESP Başlat
-    for _, player in pairs(Players:GetPlayers()) do
-        CreateESP(player)
-    end
-    Players.PlayerAdded:Connect(CreateESP)
+    -- Box & Name ESP Oluşturucu
+    local function UpdateESP()
+        ClearESP()
+        if not (espEnabled or nameEspEnabled or ultTrackerEnabled) then return end
 
-    -- ESP DÖNGÜSÜ & ULTİ TESPİTİ (RunService)
-    RunService.RenderStepped:Connect(function()
-        for _, player in pairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and player.Character then
-                local char = player.Character
-                local head = char:FindFirstChild("Head")
-                local hum = char:FindFirstChildOfClass("Humanoid")
-                local highlight = char:FindFirstChild("PurpleBoxESP")
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                local hrp = p.Character.HumanoidRootPart
+                local hum = p.Character:FindFirstChildOfClass("Humanoid")
 
-                -- Box ESP Güncelleme
-                if highlight then
-                    highlight.Enabled = boxEspEnabled
-                end
+                if hum and hum.Health > 0 then
+                    -- Highlight / Box ESP
+                    if espEnabled then
+                        local highlight = Instance.new("Highlight")
+                        highlight.Name = p.Name .. "_Highlight"
+                        highlight.Adornee = p.Character
+                        highlight.FillColor = Color3.fromRGB(150, 60, 255)
+                        highlight.FillTransparency = 0.6
+                        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+                        highlight.OutlineTransparency = 0
+                        highlight.Parent = espFolder
+                    end
 
-                -- Nametag & Ulti Güncelleme
-                if head and head:FindFirstChild("PurpleNametag") then
-                    local billboard = head.PurpleNametag
-                    billboard.Enabled = nametagEspEnabled or ultTrackerEnabled
-                    
-                    local statusLabel = billboard:FindFirstChild("StatusLabel")
-                    local nameLabel = billboard:FindFirstChild("NameLabel")
+                    -- BillboardGui (İsim ve Ulti Takipçisi)
+                    if nameEspEnabled or ultTrackerEnabled then
+                        local bb = Instance.new("BillboardGui")
+                        bb.Name = p.Name .. "_Billboard"
+                        bb.Adornee = hrp
+                        bb.Size = UDim2.new(0, 200, 0, 50)
+                        bb.StudsOffset = Vector3.new(0, 3.5, 0)
+                        bb.AlwaysOnTop = true
+                        bb.Parent = espFolder
 
-                    if hum and statusLabel then
-                        -- TSB Ulti Modu Kontrolü (Ultimate açıldığında karakterde aura/mode attribute veya özel efekt oluşur)
-                        local isUltActive = char:FindFirstChild("Ultimate") or char:GetAttribute("Ultimate") or (hum.MaxHealth > 100)
+                        local txt = Instance.new("TextLabel", bb)
+                        txt.Size = UDim2.new(1, 0, 1, 0)
+                        txt.BackgroundTransparency = 1
+                        txt.TextColor3 = Color3.fromRGB(255, 255, 255)
+                        txt.Font = Enum.Font.GothamBold
+                        txt.TextSize = 11
+                        txt.TextStrokeTransparency = 0
 
-                        if isUltActive and ultTrackerEnabled then
-                            statusLabel.Text = "🔥 ULTİ AKTİF! | HP: " .. math.floor(hum.Health)
-                            statusLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
-                            if nameLabel then nameLabel.TextColor3 = Color3.fromRGB(255, 200, 50) end
-                            if highlight then highlight.FillColor = Color3.fromRGB(255, 0, 50) end
-                        else
-                            statusLabel.Text = "HP: " .. math.floor(hum.Health)
-                            statusLabel.TextColor3 = Color3.fromRGB(180, 180, 200)
-                            if nameLabel then nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255) end
-                            if highlight then highlight.FillColor = Color3.fromRGB(140, 60, 255) end
+                        local displayText = ""
+                        
+                        if nameEspEnabled then
+                            displayText = p.DisplayName .. " [" .. math.floor(hum.Health) .. " HP]"
                         end
+
+                        -- TSB Ulti Kontrolü (Ulti/Ultimate Değeri)
+                        if ultTrackerEnabled then
+                            local ultValue = p:FindFirstChild("Ultimate") or p:FindFirstChild("Ult") or (p.Character and p.Character:FindFirstChild("Ultimate"))
+                            if ultValue then
+                                local val = ultValue.Value or 0
+                                displayText = displayText .. "\n🔥 ULT: %" .. tostring(val)
+                            end
+                        end
+
+                        txt.Text = displayText
                     end
                 end
             end
         end
-    end)
+    end
 
-    -- UI TOGGLES
+    -- Toggles
     VisualsTab:AddToggle("Box ESP", function(state)
-        boxEspEnabled = state
+        espEnabled = state
+        UpdateESP()
     end)
 
     VisualsTab:AddToggle("Nametag ESP", function(state)
-        nametagEspEnabled = state
+        nameEspEnabled = state
+        UpdateESP()
     end)
 
-    VisualsTab:AddToggle("Ulti Tracker (G Detect)", function(state)
+    VisualsTab:AddToggle("Ult Tracker", function(state)
         ultTrackerEnabled = state
+        UpdateESP()
     end)
 
-    print("[PurpleHub] Visuals Module Loaded with Box, Nametag & Ult Tracker!")
+    -- Döngüsel Güncelleme
+    local espLoop = RunService.RenderStepped:Connect(function()
+        if espEnabled or nameEspEnabled or ultTrackerEnabled then
+            UpdateESP()
+        end
+    end)
+
+    -- Menü Kapandığında ESP'leri Tamamen Temizle
+    UI:OnClose(function()
+        espEnabled = false
+        nameEspEnabled = false
+        ultTrackerEnabled = false
+        if espLoop then espLoop:Disconnect() end
+        ClearESP()
+        espFolder:Destroy()
+    end)
 end
 
 return Visuals
