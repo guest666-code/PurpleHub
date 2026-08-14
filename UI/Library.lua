@@ -1,21 +1,31 @@
 --[[
-    PURPLE HUB V-PRO: FIXED UI LIBRARY (WITH SLIDERS)
+    PURPLE HUB V-PRO: FIXED UI LIBRARY (WITH CLEANUP TRIPPERS & FIXED AUDIO)
 ]]
 
-local Library = {}
+local Library = { OnCloseEvents = {} }
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local SoundService = game:GetService("SoundService")
 local UserInputService = game:GetService("UserInputService")
 
-local function PlaySound(soundId, pitch)
+-- Roblox Tarafında Garantili Çalışan Global UI Sesleri
+local function PlaySound(soundType)
     local sound = Instance.new("Sound")
-    sound.SoundId = "rbxassetid://" .. tostring(soundId)
-    sound.Volume = 0.4
-    sound.Pitch = pitch or 1
+    if soundType == "Click" then
+        sound.SoundId = "rbxassetid://12221967" -- Standart Tıklama
+        sound.Pitch = 1.2
+    elseif soundType == "Close" then
+        sound.SoundId = "rbxassetid://12221976" -- Kapanış Sesi
+        sound.Pitch = 0.8
+    end
+    sound.Volume = 0.5
     sound.Parent = SoundService
     sound:Play()
     sound.Ended:Connect(function() sound:Destroy() end)
+end
+
+function Library:OnClose(fn)
+    table.insert(self.OnCloseEvents, fn)
 end
 
 function Library:CreateWindow(hubTitle)
@@ -55,22 +65,26 @@ function Library:CreateWindow(hubTitle)
     title.TextSize = 11
     title.TextXAlignment = Enum.TextXAlignment.Left
 
+    -- KÜÇÜLTME BUTONU (-)
     local minBtn = Instance.new("TextButton", topBar)
-    minBtn.Text = "—"
+    minBtn.Text = "-"
     minBtn.Size = UDim2.new(0, 26, 0, 26)
     minBtn.Position = UDim2.new(1, -62, 0.5, -13)
     minBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 60)
-    minBtn.TextColor3 = Color3.fromRGB(200, 200, 220)
+    minBtn.TextColor3 = Color3.fromRGB(220, 220, 240)
     minBtn.Font = Enum.Font.GothamBold
+    minBtn.TextSize = 14
     Instance.new("UICorner", minBtn).CornerRadius = UDim.new(0, 6)
 
+    -- KAPATMA BUTONU (X - KARE SİMGESİ DÜZELTİLDİ)
     local closeBtn = Instance.new("TextButton", topBar)
-    closeBtn.Text = "✕"
+    closeBtn.Text = "X"
     closeBtn.Size = UDim2.new(0, 26, 0, 26)
     closeBtn.Position = UDim2.new(1, -32, 0.5, -13)
     closeBtn.BackgroundColor3 = Color3.fromRGB(220, 50, 70)
     closeBtn.TextColor3 = Color3.new(1, 1, 1)
     closeBtn.Font = Enum.Font.GothamBold
+    closeBtn.TextSize = 12
     Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 6)
 
     local navBar = Instance.new("Frame", mainFrame)
@@ -89,17 +103,24 @@ function Library:CreateWindow(hubTitle)
     contentFrame.BackgroundTransparency = 1
 
     minBtn.MouseButton1Click:Connect(function()
-        PlaySound(6042053626, 1.1)
+        PlaySound("Click")
         window.IsMinimized = not window.IsMinimized
         TweenService:Create(mainFrame, TweenInfo.new(0.3), { Size = window.IsMinimized and UDim2.new(0, 340, 0, 40) or UDim2.new(0, 340, 0, 420) }):Play()
         navBar.Visible = not window.IsMinimized
         contentFrame.Visible = not window.IsMinimized
     end)
 
+    -- HİLELERİ VE ARAYÜZÜ TAMAMEN KAPATAN LOGIC
     closeBtn.MouseButton1Click:Connect(function()
-        PlaySound(138089312, 1.0)
-        TweenService:Create(mainFrame, TweenInfo.new(1.8), { Size = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 1 }):Play()
-        task.wait(2)
+        PlaySound("Close")
+        
+        -- Tüm Modüllerdeki Hileleri Kapat (Cleanup Loop)
+        for _, callback in ipairs(Library.OnCloseEvents) do
+            pcall(callback)
+        end
+
+        TweenService:Create(mainFrame, TweenInfo.new(0.4), { Size = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 1 }):Play()
+        task.wait(0.4)
         screenGui:Destroy()
     end)
 
@@ -130,7 +151,7 @@ function Library:CreateWindow(hubTitle)
         if #window.Tabs == 0 then tabBtn.TextColor3 = Color3.fromRGB(170, 90, 255) end
 
         tabBtn.MouseButton1Click:Connect(function()
-            PlaySound(6042053626, 1.3)
+            PlaySound("Click")
             for _, t in pairs(window.Tabs) do
                 t.Container.Visible = false
                 t.Button.TextColor3 = Color3.fromRGB(140, 140, 170)
@@ -162,13 +183,12 @@ function Library:CreateWindow(hubTitle)
             local state = false
             btn.MouseButton1Click:Connect(function()
                 state = not state
-                PlaySound(6042053626, state and 1.5 or 0.9)
+                PlaySound("Click")
                 status.BackgroundColor3 = state and Color3.fromRGB(160, 70, 255) or Color3.fromRGB(45, 45, 60)
                 pcall(callback, state)
             end)
         end
 
-        -- YENİ EKLENEN SLIDER (KAYDIRICI) SİSTEMİ
         function tab:AddSlider(text, min, max, default, callback)
             local frame = Instance.new("Frame", container)
             frame.Size = UDim2.new(1, 0, 0, 44)
@@ -233,4 +253,3 @@ function Library:CreateWindow(hubTitle)
 end
 
 return Library
-
